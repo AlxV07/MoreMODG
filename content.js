@@ -341,9 +341,18 @@ function enhanceSyllabusPage() {
 }
 
 function findStudentWorkFilter() {
-  return [...document.querySelectorAll('select')]
-    .find((select) => select.id !== 'select_schoolyear' && [...select.options]
-      .some((option) => option.textContent.trim().includes('Filter by Course')));
+  const candidates = [...document.querySelectorAll('#studentwork-app select, select')]
+    .filter((select, index, all) => all.indexOf(select) === index)
+    .filter((select) => select.id !== 'select_schoolyear'
+      && !/^DataTables_Table_0_length$/.test(select.name || select.id)
+      && select.options.length >= 2);
+  const labeledFilter = candidates.find((select) => [...select.options]
+    .some((option) => /Filter by Course|All courses/i.test(option.textContent.trim())));
+  if (labeledFilter) return labeledFilter;
+
+  // On a class-specific Student Work view the portal removes the “Filter by
+  // Course” option, but leaves the course selector inside this app.
+  return candidates.find((select) => select.closest('#studentwork-app'));
 }
 
 function enhanceStudentWorkFilter() {
