@@ -340,10 +340,14 @@ function enhanceSyllabusPage() {
   debug('Added Jump to Today to syllabus page.');
 }
 
-function enhanceStudentWorkFilter() {
-  const filter = [...document.querySelectorAll('select')]
+function findStudentWorkFilter() {
+  return [...document.querySelectorAll('select')]
     .find((select) => select.id !== 'select_schoolyear' && [...select.options]
       .some((option) => option.textContent.trim().includes('Filter by Course')));
+}
+
+function enhanceStudentWorkFilter() {
+  const filter = findStudentWorkFilter();
   if (!filter || filter.options.length < 2) return;
   let style = document.getElementById('moremodg-studentwork-style');
   if (!style) {
@@ -363,18 +367,33 @@ function enhanceStudentWorkFilter() {
     list.setAttribute('aria-label', 'Filter student work by course');
     list.className = 'border border-gray-300 rounded bg-white divide-y divide-gray-200 overflow-hidden moremodg-course-list';
     container.appendChild(list);
-    filter.addEventListener('change', () => renderCourseList(filter, list));
+  }
+  // The portal may replace the select element while keeping its parent. Bind
+  // each new select, rather than assuming the first one is still live.
+  if (filter.dataset.moremodgChangeBound !== 'true') {
+    filter.dataset.moremodgChangeBound = 'true';
+    filter.addEventListener('change', () => {
+      const currentList = filter.parentElement?.querySelector('[data-moremodg-course-list]');
+      if (currentList) renderCourseList(filter, currentList);
+    });
   }
   filter.classList.add('moremodg-course-filter');
   filter.style.display = 'none';
-  if (filter.dataset.moremodgExpanded === 'true' && filter.dataset.moremodgOptionCount === optionCount && list.dataset.moremodgValue === filter.value) {
+  filter.removeAttribute('multiple');
+  filter.setAttribute('aria-label', 'Filter student work by course');
+  if (filter.dataset.moremodgExpanded === 'true'
+    && filter.dataset.moremodgOptionCount === optionCount
+    && filter.classList.contains('moremodg-course-filter')
+    && filter.style.display === 'none'
+    && !filter.hasAttribute('multiple')
+    && filter.getAttribute('aria-label') === 'Filter student work by course'
+    && list.isConnected
+    && list.dataset.moremodgValue === filter.value) {
     return;
   }
   filter.dataset.moremodgExpanded = 'true';
   filter.dataset.moremodgOptionCount = optionCount;
-  filter.removeAttribute('multiple');
   filter.style.minWidth = '18rem';
-  filter.setAttribute('aria-label', 'Filter student work by course');
   renderCourseList(filter, list);
   debug('Expanded student work course filter.', { options: filter.options.length });
 }
@@ -411,9 +430,7 @@ function enhanceStudentWorkLayout() {
   const assignmentList = table.querySelector('.dt-table');
   if (!assignmentList) return;
 
-  const filter = [...document.querySelectorAll('select')]
-    .find((select) => select.id !== 'select_schoolyear' && [...select.options]
-      .some((option) => option.textContent.trim().includes('Filter by Course')));
+  const filter = findStudentWorkFilter();
   const filterContainer = filter?.parentElement;
   let layout = document.getElementById('moremodg-studentwork-layout');
   if (!layout) {
@@ -464,7 +481,10 @@ chrome.storage.local.get(STORAGE_KEYS.enabled).then(({ modgEnabled }) => {
   enhanceStudentWorkFilter();
   enhanceStudentWorkLayout();
   const studentWorkObserver = new MutationObserver(enhanceStudentWorkFilter);
-  studentWorkObserver.observe(document.documentElement, { childList: true, subtree: true });
+  studentWorkObserver.observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  });
   const studentWorkLayoutObserver = new MutationObserver(enhanceStudentWorkLayout);
   studentWorkLayoutObserver.observe(document.documentElement, { childList: true, subtree: true });
   window.setTimeout(enhanceStudentWorkFilter, 250);
@@ -476,4 +496,3 @@ chrome.storage.local.get(STORAGE_KEYS.enabled).then(({ modgEnabled }) => {
   const studentWorkRetry = window.setInterval(() => enhanceStudentWorkFilter(), 1000);
   window.setTimeout(() => window.clearInterval(studentWorkRetry), 30000);
 }).catch(() => {});
-
