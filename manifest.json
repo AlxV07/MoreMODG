@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "MoreMODG",
+  "version": "0.1.0",
+  "description": "Student-built enhancements to the family portal!",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["https://families.modg.org/*"],
+  "icons": {
+    "16": "M.png",
+    "32": "M.png",
+    "48": "M.png",
+    "128": "M.png"
+  },
+  "action": {
+    "default_title": "MoreMODG",
+    "default_icon": "M.png",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://families.modg.org/students/*",
+        "https://families.modg.org/students/*/studentwork",
+        "https://families.modg.org/syllabi/*",
+        "https://families.modg.org/customsyllabi/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

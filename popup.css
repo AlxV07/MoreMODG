@@ -1,0 +1,19 @@
+:root { color-scheme: light; font-family: Inter, Arial, sans-serif; }
+body { width: 320px; margin: 0; color: #1f2937; background: #f8fafc; }
+.popup { padding: 22px; }
+.brand { display: flex; align-items: center; gap: 8px; color: #173d72; font-family: Georgia, serif; font-size: 18px; letter-spacing: .08em; }
+.logo { width: 28px; height: 28px; object-fit: contain; }
+.intro { margin: 0 0 18px; color: #64748b; font-size: 13px; line-height: 1.5; }
+.button { width: 100%; border: 0; border-radius: 6px; padding: 11px 14px; color: white; background: #2563a9; font-weight: 700; cursor: pointer; }
+.button:hover { background: #1d4f88; }
+.button:disabled { opacity: .65; cursor: wait; }
+.status { min-height: 20px; margin-top: 13px; font-size: 12px; line-height: 1.45; }
+.status.success { color: #166534; }
+.status.error { color: #b91c1c; }
+.saved { margin-top: 10px; border-top: 1px solid #dbe3ee; padding-top: 10px; color: #64748b; font-size: 11px; word-break: break-word; }
+.enhancements { margin-top: 16px; border-top: 1px solid #dbe3ee; padding-top: 12px; color: #475569; font-size: 12px; line-height: 1.45; }
+.enhancements-title { margin-bottom: 5px; color: #173d72; font-weight: 700; }
+.enhancements ul { margin: 0; padding-left: 18px; }
+.enhancements li { margin: 4px 0; }
+.hidden { display: none; }
+
