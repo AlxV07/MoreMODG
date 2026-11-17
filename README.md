@@ -36,8 +36,3 @@ Implemented via site scraping (volatile stability):
 
 Contact me at: https://alxv07.github.io/#connect
 **Any bug reports, suggestions, or feedback is greatly appreciated!**
-
-## Checking changes
-
-Open `tests/home.html` and `tests/popup.html` in a browser. It runs regression checks for weekday alignment, weekend and week rollover, seven-day assignment carryover, course matching, meeting buttons, preserved controls, and repeated rendering, using fictional portal data. Reload the extension and student home page to check the actual portal styling and behavior; no additional Setup is required for these changes if syllabi are already saved.
-
