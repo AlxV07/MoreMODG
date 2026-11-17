@@ -3,6 +3,10 @@ body { width: 320px; margin: 0; color: #1f2937; background: #f8fafc; }
 .popup { padding: 22px; }
 .brand { display: flex; align-items: center; gap: 8px; color: #173d72; font-family: Georgia, serif; font-size: 18px; letter-spacing: .08em; }
 .logo { width: 28px; height: 28px; object-fit: contain; }
+.enable-control { display: flex; align-items: center; justify-content: space-between; margin: 14px 0 6px; font-size: 13px; font-weight: 700; }
+.enable-control input { width: 32px; height: 20px; accent-color: #2563a9; cursor: pointer; }
+.enable-control input:disabled { cursor: default; }
+.toggle-help { margin: 0 0 14px; color: #64748b; font-size: 11px; line-height: 1.45; }
 .intro { margin: 0 0 18px; color: #64748b; font-size: 13px; line-height: 1.5; }
 .button { width: 100%; border: 0; border-radius: 6px; padding: 11px 14px; color: white; background: #2563a9; font-weight: 700; cursor: pointer; }
 .button:hover { background: #1d4f88; }

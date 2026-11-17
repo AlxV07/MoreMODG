@@ -1,19 +1,29 @@
 {
   "manifest_version": 3,
   "name": "MoreMODG",
-  "version": "0.1.2",
+  "version": "0.1.5",
   "description": "Student-built enhancements to the family portal!",
-  "permissions": ["storage", "activeTab"],
-  "host_permissions": ["https://families.modg.org/*"],
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://families.modg.org/*"
+  ],
   "icons": {
-    "16": "M.png",
-    "32": "M.png",
-    "48": "M.png",
-    "128": "M.png"
+    "16": "modg-logo-16.png",
+    "32": "modg-logo-32.png",
+    "48": "modg-logo-48.png",
+    "128": "modg-logo-128.png"
   },
   "action": {
     "default_title": "MoreMODG",
-    "default_icon": "M.png",
+    "default_icon": {
+      "16": "modg-logo-16.png",
+      "32": "modg-logo-32.png",
+      "48": "modg-logo-48.png",
+      "128": "modg-logo-128.png"
+    },
     "default_popup": "popup.html"
   },
   "content_scripts": [
@@ -24,7 +34,9 @@
         "https://families.modg.org/syllabi/*",
         "https://families.modg.org/customsyllabi/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ]
