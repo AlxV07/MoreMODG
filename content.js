@@ -23,6 +23,168 @@ function absoluteUrl(path) { return new URL(path, location.origin).href; }
 
 function cleanText(value) { return value.replace(/\s+/g, ' ').trim(); }
 
+function matchingTitle(value) {
+  return cleanText(value).toLowerCase().replace(/\bsyllabus\b|\(ls\)/g, '').replace(/[^a-z0-9]/g, '');
+}
+
+function homePanel(title) {
+  return [...document.querySelectorAll('.tw-panel h2')]
+    .find((heading) => cleanText(heading.textContent) === title)?.closest('.tw-panel');
+}
+
+function courseScheduleData() {
+  const coursesPanel = homePanel('Courses');
+  const schedulePanel = homePanel('Teacher Support Schedule');
+  if (!coursesPanel) return { courses: [], schedulePanel };
+  const courses = [...coursesPanel.querySelectorAll('a[href^="/courses/"]')].map((link) => {
+    const row = link.closest('.moremodg-course-row') || link;
+    const title = cleanText(row.querySelector('.font-semibold')?.textContent || '');
+    const enrollments = [...row.querySelectorAll('[id^="course-enrollments-"] tbody tr')];
+    const classNames = enrollments.filter((entry) => cleanText(entry.cells[0]?.textContent || '') === 'Class')
+      .map((entry) => cleanText(entry.cells[1]?.textContent || ''));
+    const titles = [title, ...enrollments.map((entry) => cleanText(entry.cells[1]?.textContent || ''))];
+    return { row, title, titles, classNames, meetings: [] };
+  });
+  schedulePanel?.querySelectorAll('li').forEach((item) => {
+    const link = item.querySelector('a[href]');
+    if (!link) return;
+    const name = cleanText(link.textContent);
+    const matches = courses.filter((course) => course.classNames.some((title) => matchingTitle(title) === matchingTitle(name)));
+    if (matches.length !== 1) return;
+    const course = matches[0];
+    const dates = [...item.querySelectorAll('[data-iso]')].map((span) => new Date(span.dataset.iso))
+      .filter((date) => !Number.isNaN(date.getTime())).sort((a, b) => a - b);
+    course.meetings.push({ item, name, href: link.href, dates });
+  });
+  // After merging, retain the live DOM references without storing meeting credentials.
+  return { courses, schedulePanel };
+}
+
+function syllabusCourse(syllabus, courses) {
+  const title = matchingTitle(syllabus.title);
+  const matches = courses.filter((course) => course.titles.some((name) => matchingTitle(name) === title));
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function syllabusStartDay(syllabus, courses) {
+  const course = syllabusCourse(syllabus, courses);
+  if (!course) return null;
+  const dates = course.meetings.flatMap((meeting) => meeting.dates).sort((a, b) => a - b);
+  return dates.length ? dates[0].getDay() || 7 : null;
+}
+
+// Calendar positions are relative to Monday of MODG Week 1. Day 1 is the
+// meeting weekday; subsequent syllabus days skip weekends and may cross weeks.
+function assignmentCalendarDay(week, day, startDay = 1) {
+  let position = (week - 1) * 7 + startDay - 1;
+  for (let index = 1; index < day; index++) {
+    position++;
+    while (position % 7 === 5 || position % 7 === 6) position++;
+  }
+  return position;
+}
+
+function hasAssignmentContent(html) {
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  const text = cleanText(template.content.textContent || '').replace(/\u200b/g, '');
+  return Boolean(template.content.querySelector('img, video, audio, a[href], table')
+    || (text && !/^(?:no assignment(?: listed)?\.?|syllabus blank)$/i.test(text)));
+}
+
+function latestAssignment(syllabus, week, calendarDay, startDay = 1) {
+  const selected = (week - 1) * 7 + calendarDay - 1;
+  let latest = null;
+  let latestPosition = -Infinity;
+  for (const assignment of syllabus.weeks) {
+    const position = assignmentCalendarDay(assignment.week, assignment.day, startDay);
+    if (position > selected || selected - position > 7 || position <= latestPosition) continue;
+    if (!(assignment.hasContent ?? hasAssignmentContent(assignment.html))) continue;
+    latest = assignment;
+    latestPosition = position;
+  }
+  return latest;
+}
+
+let currentCourses = [];
+
+function enhanceHomeCourses() {
+  if (currentCourses.length && currentCourses.every((course) => course.row.isConnected)) return;
+  const { courses, schedulePanel } = courseScheduleData();
+  currentCourses = courses;
+  if (!schedulePanel) return;
+  let unmatched = false;
+  [...schedulePanel.querySelectorAll('li')].forEach((item) => {
+    const course = courses.find((entry) => entry.meetings.some((meeting) => meeting.item === item));
+    if (!course) { unmatched = true; return; }
+    const meeting = course.meetings.find((entry) => entry.item === item);
+    const grid = course.row.firstElementChild;
+    const actions = grid?.lastElementChild;
+    if (!actions) { unmatched = true; return; }
+    // Keep navigation on the title so meeting and toggle buttons are not
+    // nested inside an anchor (which would also navigate to the course).
+    let wrapper = course.row;
+    if (wrapper.tagName === 'A') {
+      const courseUrl = wrapper.getAttribute('href');
+      const original = wrapper;
+      wrapper = document.createElement('div');
+      wrapper.className = `${original.className} moremodg-course-row`;
+      wrapper.append(...original.childNodes);
+      original.replaceWith(wrapper);
+      course.row = wrapper;
+      const title = wrapper.querySelector('.font-semibold');
+      const titleLink = document.createElement('a');
+      titleLink.href = courseUrl;
+      titleLink.className = 'tw-link';
+      titleLink.textContent = title.textContent;
+      title.replaceChildren(titleLink);
+    }
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn-sm btn-white';
+    const icon = meeting.item.querySelector('a svg')?.cloneNode(true);
+    if (icon) {
+      icon.setAttribute('class', 'h-5 w-5 text-gray-400 hover:text-gray-500');
+      icon.setAttribute('aria-hidden', 'true');
+      icon.setAttribute('focusable', 'false');
+      button.append(icon);
+    } else {
+      // The portal normally supplies its own Font Awesome SVG.
+      const fallback = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      fallback.setAttribute('viewBox', '0 0 24 24');
+      fallback.setAttribute('class', 'h-5 w-5 text-gray-400 hover:text-gray-500');
+      fallback.setAttribute('fill', 'none');
+      fallback.setAttribute('stroke', 'currentColor');
+      fallback.setAttribute('stroke-width', '2');
+      fallback.setAttribute('aria-hidden', 'true');
+      fallback.innerHTML = '<path d="M3 14v-2a9 9 0 0 1 18 0v2M3 13h4v8H3zM17 13h4v8h-4z"/>';
+      button.append(fallback);
+    }
+    button.dataset.moremodgJoinClass = 'true';
+    button.title = `Go to Class: ${meeting.name}`;
+    button.setAttribute('aria-label', `Go to Class: ${meeting.name} (opens in a new tab)`);
+    const meetingUrl = new URL(meeting.href, location.href);
+    if (!/^https?:$/.test(meetingUrl.protocol)) { unmatched = true; return; }
+    button.addEventListener('click', () => window.open(meetingUrl.href, '_blank', 'noopener,noreferrer'));
+    actions.classList.remove('flex-wrap');
+    actions.classList.add('flex-nowrap');
+    grid.style.gridTemplateColumns = 'minmax(0, 1fr) auto auto';
+    grid.firstElementChild.classList.remove('col-span-2');
+    grid.querySelector('.whitespace-nowrap')?.classList.remove('whitespace-nowrap');
+    actions.append(button);
+    // Preserve the original Upcoming block and its timestamp formatting. It
+    // moves into the matching syllabus when rendered; until then keep it here.
+    // Teacher/grader summaries are already available in the enrollment dropdown.
+    const upcomingLabel = [...item.querySelectorAll('div')]
+      .find((node) => cleanText(node.textContent) === 'Upcoming');
+    meeting.upcoming = upcomingLabel?.parentElement || null;
+    if (meeting.upcoming) wrapper.append(meeting.upcoming);
+    item.remove();
+    // Keep the existing teacher and assessment controls functional.
+  });
+  if (!unmatched && !schedulePanel.querySelector('li')) schedulePanel.hidden = true;
+}
+
 function safeAssignmentHTML(source, baseUrl) {
   const template = document.createElement('template');
   template.innerHTML = source;
@@ -90,7 +252,8 @@ function parseSyllabus(html, url, title) {
       week: Number(match[1]),
       day: Number(match[2]),
       heading,
-      html: safeAssignmentHTML(content?.innerHTML || '<p>No assignment listed.</p>', url)
+      html: safeAssignmentHTML(content?.innerHTML || '<p>No assignment listed.</p>', url),
+      hasContent: hasAssignmentContent(content?.innerHTML || '')
     });
   });
   if (!blocks.length) throw new Error(`No week/day assignments found for ${title}.`);
@@ -180,6 +343,7 @@ function resetHomeSelectionOnDirectLoad() {
 }
 
 function renderPanel(data) {
+  enhanceHomeCourses();
   resetHomeSelectionOnDirectLoad();
   const existing = document.getElementById('moremodg-weekly-work');
   if (existing) existing.remove();
@@ -191,7 +355,7 @@ function renderPanel(data) {
   }
   const panel = document.createElement('div');
   panel.id = 'moremodg-weekly-work';
-  panel.className = 'tw-panel tw-panel-divide col-span-full';
+  panel.className = 'tw-panel tw-panel-divide';
   panel.innerHTML = `
     <div class="tw-panel-heading tw-panel-padding-sm flex items-center justify-between">
       <h2>Unified Syllabus</h2><span class="text-xs text-gray-500">MoreMODG Enhancement</span>
@@ -199,11 +363,29 @@ function renderPanel(data) {
     <div class="tw-panel-padding-sm">
       <div class="flex items-center gap-2 mb-3">
         <select id="moremodg-week" class="tw-form-select text-sm flex-none w-48" aria-label="MODG week"></select>
-        <select id="moremodg-day" class="tw-form-select text-sm flex-none w-28" aria-label="Day"></select>
+        <select id="moremodg-day" class="tw-form-select text-sm flex-none w-36" aria-label="Calendar weekday"></select>
       </div>
       <div id="moremodg-body"></div>
     </div>`;
-  grid.append(panel);
+  let layout = document.getElementById('moremodg-home-layout');
+  if (!layout) {
+    layout = document.createElement('div');
+    layout.id = 'moremodg-home-layout';
+    layout.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr));gap:1rem;align-items:start;grid-column:1 / -1;min-width:0';
+    grid.prepend(layout);
+    const coursesPanel = homePanel('Courses');
+    if (coursesPanel) {
+      const oldColumn = coursesPanel.parentElement;
+      layout.append(coursesPanel);
+      // Leave any other portal sections in their original column.
+      if (oldColumn !== grid && oldColumn !== layout && !oldColumn.children.length) oldColumn.hidden = true;
+    }
+    const schedulePanel = homePanel('Teacher Support Schedule');
+    const scheduleColumn = schedulePanel?.parentElement;
+    if (schedulePanel?.hidden && scheduleColumn !== grid && scheduleColumn !== layout
+      && [...scheduleColumn.children].every((child) => child.hidden)) scheduleColumn.hidden = true;
+  }
+  layout.append(panel);
   const weekSelect = panel.querySelector('#moremodg-week');
   const daySelect = panel.querySelector('#moremodg-day');
   const body = panel.querySelector('#moremodg-body');
@@ -216,8 +398,9 @@ function renderPanel(data) {
     const days = [1, 2, 3, 4, 5];
     const savedDay = localStorage.getItem('moremodgSelectedDay');
     const previousDay = daySelect.value || savedDay || String(defaultModgDay());
-    daySelect.replaceChildren(...days.map((day) => new Option(`Day ${day}`, day)));
-    daySelect.add(new Option('All 5 Days', 'all'));
+    const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    daySelect.replaceChildren(...days.map((day) => new Option(weekdays[day - 1], day)));
+    daySelect.add(new Option('All weekdays', 'all'));
     daySelect.value = previousDay === 'all' || days.includes(Number(previousDay)) ? String(previousDay) : String(defaultModgDay());
     body.replaceChildren();
     data.syllabi.forEach((syllabus) => {
@@ -230,14 +413,34 @@ function renderPanel(data) {
       syllabusLink.href = syllabusUrl.href;
       syllabusLink.setAttribute('aria-label', `${syllabus.title}, Week ${week}`);
       const assignmentBody = section.querySelector('.assignment');
+      const meetingDay = syllabusStartDay(syllabus, currentCourses);
+      const startDay = meetingDay ?? 1;
+      const scheduleNote = document.createElement('div');
+      scheduleNote.className = 'text-xs text-gray-500 mb-2';
+      scheduleNote.textContent = meetingDay === null
+        ? 'Day 1: Monday (no matching meeting weekday available)'
+        : `Day 1: ${weekdays[startDay - 1]}`;
+      assignmentBody.before(scheduleNote);
+      const course = syllabusCourse(syllabus, currentCourses);
+      course?.meetings.forEach((meeting) => {
+        if (meeting.upcoming) assignmentBody.before(meeting.upcoming);
+      });
       const selectedDays = daySelect.value === 'all' ? days : [Number(daySelect.value)];
       selectedDays.forEach((day) => {
-        const assignment = syllabus.weeks.find((w) => w.week === week && w.day === day);
+        const assignment = latestAssignment(syllabus, week, day, startDay);
         const dayBlock = document.createElement('div');
         dayBlock.className = selectedDays.length > 1 ? 'mb-3' : '';
-        if (selectedDays.length > 1) dayBlock.innerHTML = `<div class="font-semibold text-gray-500 not-prose">Day ${day}</div>`;
+        const label = document.createElement('div');
+        label.className = 'font-semibold text-gray-500 not-prose';
+        label.textContent = `${weekdays[day - 1]}${assignment ? ` · Week ${assignment.week}, Day ${assignment.day}` : ''}`;
+        dayBlock.append(label);
+        if (assignment && selectedDays.length === 1) {
+          syllabusUrl.hash = `week-ls-${assignment.week}`;
+          syllabusLink.href = syllabusUrl.href;
+          syllabusLink.setAttribute('aria-label', `${syllabus.title}, Week ${assignment.week}, Day ${assignment.day}`);
+        }
         const content = document.createElement('div');
-        content.innerHTML = assignment?.html || '<p class="italic text-gray-500">Syllabus blank</p>';
+        content.innerHTML = assignment?.html || '<p class="italic text-gray-500">No assignment in the past seven days.</p>';
         dayBlock.appendChild(content);
         assignmentBody.appendChild(dayBlock);
       });
@@ -287,7 +490,7 @@ function enhanceSyllabusPage() {
   const infoPanel = document.createElement('div');
   infoPanel.id = 'moremodg-week-info';
   infoPanel.className = 'absolute right-0 top-full z-10 mt-2 hidden w-80 rounded border border-gray-200 bg-white p-3 text-left text-xs text-gray-600 shadow-lg';
-  infoPanel.textContent = 'Automatic week selection maps Week 36 of the year to MODG Week 1, then advances one MODG week per calendar week for 32 weeks. The button jumps to the exact week when available, or the closest earlier week. Day 1–5 maps to Monday–Friday in the home-page work panel. This may not be accurate for every family e.g. for families using different asynchronous schedules. (Click elsewhere to close this info blob.)';
+  infoPanel.textContent = 'Automatic week selection maps Week 36 of the year to MODG Week 1, then advances one MODG week per calendar week for 32 weeks. The button jumps to the exact week when available, or the closest earlier week. On the home page, syllabus Day 1 starts on the matching class meeting weekday, and later days skip weekends. Courses without a matching meeting weekday start on Monday. The unified syllabus shows the most recent nonblank assignment within seven calendar days of the selected weekday. Families using different school calendars may need to select a week manually. (Click elsewhere to close.)';
 
   const actionGroup = document.createElement('div');
   actionGroup.className = 'inline-flex items-center overflow-hidden rounded-md border border-gray-300';
@@ -486,6 +689,7 @@ chrome.storage.local.get([STORAGE_KEYS.home, STORAGE_KEYS.data, STORAGE_KEYS.ena
 
 chrome.storage.local.get(STORAGE_KEYS.enabled).then(({ modgEnabled }) => {
   if (!modgEnabled) return;
+  if (studentHomePath()) enhanceHomeCourses();
   enhanceSyllabusPage();
   enhanceStudentWorkFilter();
   enhanceStudentWorkLayout();

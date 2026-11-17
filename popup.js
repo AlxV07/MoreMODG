@@ -2,6 +2,7 @@ const setupButton = document.getElementById('setup');
 const statusEl = document.getElementById('status');
 const savedEl = document.getElementById('saved');
 const enhancementsEl = document.getElementById('enhancements');
+const enabledControl = document.getElementById('enabled');
 const LOG_PREFIX = '[MoreMODG]';
 
 function setStatus(message, type = '') {
@@ -12,16 +13,46 @@ function setStatus(message, type = '') {
 async function showSaved() {
   const data = await chrome.storage.local.get(['modgHome', 'modgData', 'modgEnabled']);
   console.info(`${LOG_PREFIX} Loaded saved state.`, data);
-  setupButton.textContent = data.modgEnabled ? 'Setup Again' : 'Setup';
-  if (!data.modgHome || !data.modgEnabled) return;
-  enhancementsEl.classList.remove('hidden');
+  const configured = Boolean(data.modgHome && data.modgData?.syllabi?.length);
+  setupButton.textContent = configured ? 'Setup Again' : 'Setup';
+  enabledControl.checked = Boolean(data.modgEnabled);
+  enabledControl.disabled = !configured;
+  enhancementsEl.classList.toggle('hidden', !data.modgEnabled);
+  savedEl.classList.toggle('hidden', !configured);
+  if (!configured) return;
   savedEl.classList.remove('hidden');
   const classes = data.modgData?.syllabi?.length ?? 0;
   savedEl.textContent = `Saved home: ${data.modgHome} · ${classes} syllabi`;
 }
 
+enabledControl.addEventListener('change', async () => {
+  const enabled = enabledControl.checked;
+  enabledControl.disabled = true;
+  setupButton.disabled = true;
+  try {
+    await chrome.storage.local.set({ modgEnabled: enabled });
+    await showSaved();
+    setStatus(`Enhancements ${enabled ? 'on' : 'off'}. Your setup is saved.`, 'success');
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id && /^https:\/\/families\.modg\.org\//.test(tab.url || '')) {
+        await chrome.tabs.reload(tab.id);
+      }
+    } catch {
+      setStatus(`Enhancements ${enabled ? 'on' : 'off'}. Refresh the portal to apply the change.`, 'success');
+    }
+  } catch (error) {
+    enabledControl.checked = !enabled;
+    setStatus(error.message || 'Could not save the setting.', 'error');
+  } finally {
+    setupButton.disabled = false;
+    await showSaved().catch(() => { enabledControl.disabled = false; });
+  }
+});
+
 setupButton.addEventListener('click', async () => {
   setupButton.disabled = true;
+  enabledControl.disabled = true;
   setStatus('Reading syllabi…');
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -41,6 +72,7 @@ setupButton.addEventListener('click', async () => {
     setStatus(message, 'error');
   } finally {
     setupButton.disabled = false;
+    await showSaved().catch(() => {});
   }
 });
 
