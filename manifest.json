@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MoreMODG",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "Student-built enhancements to the family portal!",
   "permissions": [
     "storage",

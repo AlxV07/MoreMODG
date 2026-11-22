@@ -1,8 +1,8 @@
 # MoreMODG
 
-**Last Updated: Tue Nov 17, 2026**
+**Last Updated: Sun Nov 22, 2026**
 
-**Current version: 0.1.5 alpha**
+**Current version: 0.2.0 alpha**
 
 A Chrome extension adding enhancements to the Mother of Divine Grace School student family portal.
 
