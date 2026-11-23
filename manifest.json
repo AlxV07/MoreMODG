@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MoreMODG",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "Student-built enhancements to the family portal!",
   "permissions": [
     "storage",
@@ -11,18 +11,18 @@
     "https://families.modg.org/*"
   ],
   "icons": {
-    "16": "modg-logo-16.png",
-    "32": "modg-logo-32.png",
-    "48": "modg-logo-48.png",
-    "128": "modg-logo-128.png"
+    "16": "moremodg-logo-16.png",
+    "32": "moremodg-logo-32.png",
+    "48": "moremodg-logo-48.png",
+    "128": "moremodg-logo-128.png"
   },
   "action": {
     "default_title": "MoreMODG",
     "default_icon": {
-      "16": "modg-logo-16.png",
-      "32": "modg-logo-32.png",
-      "48": "modg-logo-48.png",
-      "128": "modg-logo-128.png"
+      "16": "moremodg-logo-16.png",
+      "32": "moremodg-logo-32.png",
+      "48": "moremodg-logo-48.png",
+      "128": "moremodg-logo-128.png"
     },
     "default_popup": "popup.html"
   },
