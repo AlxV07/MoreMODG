@@ -8,8 +8,13 @@
 </head>
 <body>
   <main class="popup">
-    <div class="brand">MoreMODG</div>
+    <div class="brand"><img class="logo" src="moremodg-logo.png" alt="MoreMODG">MoreMODG</div>
     <p class="intro">Click 'Setup' to confirm this is your student home page and to enable MoreMODG enhancements.</p>
+    <label class="enable-control" for="enabled">
+      <span>Enable MoreMODG</span>
+      <input id="enabled" type="checkbox" role="switch" disabled aria-describedby="toggle-help">
+    </label>
+    <p id="toggle-help" class="toggle-help">Turn enhancements on or off without clearing your saved setup. The current portal tab reloads; refresh other open portal tabs to apply the change there.</p>
     <button id="setup" class="button">Setup</button>
     <div id="status" class="status" role="status" aria-live="polite"></div>
     <div id="saved" class="saved hidden"></div>
@@ -17,6 +22,8 @@
       <div class="enhancements-title">Enhancements enabled</div>
       <ul>
         <li>Home Page: Unified Syllabus panel</li>
+        <li>Home Page: Class weekday syncing and recent assignments</li>
+        <li>Home Page: Class meeting buttons in Courses</li>
         <li>Syllabi Pages: Jump to Today buttons</li>
         <li>Student Work Page: Expanded course filtering interface</li>
       </ul>
